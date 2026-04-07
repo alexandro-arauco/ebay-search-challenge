@@ -33,6 +33,7 @@ export interface UseSearchActions {
   setFilters: (f: SearchFilters) => void;
   setPage: (p: number) => void;
   reset: () => void;
+  retry: () => void;
 }
 
 const DEBOUNCE_MS = 400;
@@ -46,6 +47,7 @@ export function useSearch(): UseSearchState & UseSearchActions {
   const [result, setResult] = useState<SearchResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<UseSearchState["error"]>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   // Debounce query
@@ -96,9 +98,13 @@ export function useSearch(): UseSearchState & UseSearchActions {
       })
       .finally(() => setIsLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, filters, page]);
+  }, [debouncedQuery, filters, page, retryCount]);
 
   const setQuery = useCallback((q: string) => setQueryRaw(q), []);
+
+  const retry = useCallback(() => {
+    setRetryCount((c) => c + 1);
+  }, []);
 
   const reset = useCallback(() => {
     setQueryRaw("");
@@ -107,7 +113,8 @@ export function useSearch(): UseSearchState & UseSearchActions {
     setPage(1);
     setResult(null);
     setError(null);
+    setRetryCount(0);
   }, []);
 
-  return { query, filters, result, isLoading, error, page, setQuery, setFilters, setPage, reset };
+  return { query, filters, result, isLoading, error, page, setQuery, setFilters, setPage, reset, retry };
 }

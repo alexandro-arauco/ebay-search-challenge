@@ -10,7 +10,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { ErrorState, EmptyState, IdleState } from "@/components/ui/States";
 
 export default function SearchPage() {
-  const { query, filters, result, isLoading, error, page, setQuery, setFilters, setPage, reset } =
+  const { query, filters, result, isLoading, error, page, setQuery, setFilters, setPage, reset, retry } =
     useSearch();
 
   const hasQuery = query.trim().length > 0;
@@ -68,7 +68,7 @@ export default function SearchPage() {
 
         {/* Error state */}
         {!isLoading && error && (
-          <ErrorState code={error.code} message={error.message} onRetry={() => setQuery(query)} />
+          <ErrorState code={error.code} message={error.message} onRetry={retry} />
         )}
 
         {/* Empty state */}
