@@ -14,6 +14,7 @@ import {
   setCachedToken,
   clearCachedToken,
 } from "@/lib/cache/tokenCache";
+import { EbayAuthError } from "@/lib/ebay/errors";
 
 function getEbayAuthUrl(environment: string): string {
   return environment === "production"
@@ -41,7 +42,7 @@ export async function getEbayAccessToken(): Promise<string> {
   const environment = process.env.EBAY_ENVIRONMENT ?? "sandbox";
 
   if (!clientId || !clientSecret) {
-    throw new Error(
+    throw new EbayAuthError(
       "EBAY_CLIENT_ID and EBAY_CLIENT_SECRET must be set in environment variables",
     );
   }
@@ -57,7 +58,7 @@ export async function getEbayAccessToken(): Promise<string> {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`eBay auth failed (${response.status}): ${text}`);
+    throw new EbayAuthError(`eBay auth failed (${response.status}): ${text}`);
   }
 
   const token: EbayTokenResponse = await response.json();

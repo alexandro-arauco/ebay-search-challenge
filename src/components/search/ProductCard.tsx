@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import type { Product } from "@/types";
+import { formatPrice } from "@/lib/format/price";
 
 const CONDITION_LABELS: Record<string, { label: string; classes: string }> = {
   NEW: {
@@ -20,13 +21,7 @@ interface ProductCardProps {
 export function ProductCard({ product, index }: ProductCardProps) {
   const condition = CONDITION_LABELS[product.condition];
 
-  const formattedPrice =
-    product.price.value > 0
-      ? new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: product.price.currency,
-        }).format(product.price.value)
-      : "Price unavailable";
+  const formattedPrice = formatPrice(product.price.value, product.price.currency);
 
   return (
     <a

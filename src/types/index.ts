@@ -49,6 +49,12 @@ export interface SearchParams {
   readonly condition?: ProductCondition | "ALL";
 }
 
+export interface SearchFilters {
+  readonly minPrice?: number;
+  readonly maxPrice?: number;
+  readonly condition?: ProductCondition | "ALL";
+}
+
 export interface SearchResult {
   readonly items: Product[];
   readonly total: number;

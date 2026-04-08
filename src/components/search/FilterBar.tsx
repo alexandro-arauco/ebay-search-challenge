@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { SearchFilters } from "@/app/search/useSearch";
-import type { ProductCondition } from "@/types";
+import { useEffect, useState } from "react";
+import type { ProductCondition, SearchFilters } from "@/types";
 
 const CONDITIONS: { label: string; value: ProductCondition | "ALL" }[] = [
   { label: "All", value: "ALL" },
@@ -18,6 +17,11 @@ interface FilterBarProps {
 export function FilterBar({ filters, onChange }: FilterBarProps) {
   const [minInput, setMinInput] = useState(filters.minPrice?.toString() ?? "");
   const [maxInput, setMaxInput] = useState(filters.maxPrice?.toString() ?? "");
+
+  useEffect(() => {
+    setMinInput(filters.minPrice?.toString() ?? "");
+    setMaxInput(filters.maxPrice?.toString() ?? "");
+  }, [filters.minPrice, filters.maxPrice]);
 
   const applyPrice = () => {
     const min = minInput ? parseFloat(minInput) : undefined;

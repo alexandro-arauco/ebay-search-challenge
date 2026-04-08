@@ -1,6 +1,5 @@
 "use client";
 
-import { useMockApi } from "@/context/mock-api-context";
 import { useRef, useEffect } from "react";
 
 interface SearchBarProps {
@@ -8,6 +7,7 @@ interface SearchBarProps {
   onChange: (value: string) => void;
   onClear: () => void;
   isLoading: boolean;
+  disabled?: boolean;
 }
 
 export function SearchBar({
@@ -15,10 +15,9 @@ export function SearchBar({
   onChange,
   onClear,
   isLoading,
+  disabled = false,
 }: SearchBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const { isMock } = useMockApi();
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -82,7 +81,7 @@ export function SearchBar({
         "
         autoComplete="off"
         spellCheck={false}
-        disabled={isMock}
+        disabled={disabled}
       />
 
       {/* Clear button */}
@@ -91,7 +90,7 @@ export function SearchBar({
           onClick={onClear}
           className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-full hover:bg-ink-100 transition-colors"
           aria-label="Clear search"
-          disabled={isMock}
+          disabled={disabled}
         >
           <svg
             className="w-4 h-4 text-ink-400"

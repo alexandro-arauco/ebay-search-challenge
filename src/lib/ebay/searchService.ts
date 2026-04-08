@@ -12,7 +12,9 @@
 import { response as mockResponse } from "@/__mocks__/search/search-response.mock";
 import { searchEbayItems } from "@/lib/ebay/client";
 import { normalizeProducts } from "@/lib/ebay/normalizer";
+import { EbayAuthError } from "@/lib/ebay/errors";
 import type { ApiErrorCode, SearchParams, SearchResult } from "@/types";
+import { mockSearchFilters } from "@/__mocks__/search/search-filters.mock";
 
 export interface SearchServiceError {
   readonly code: ApiErrorCode;
@@ -52,10 +54,7 @@ export async function searchProducts(
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
 
-    if (
-      message.toLowerCase().includes("auth") ||
-      message.toLowerCase().includes("401")
-    ) {
+    if (err instanceof EbayAuthError) {
       return {
         ok: false,
         error: {
@@ -79,11 +78,11 @@ export async function mockSearchProducts(
           ok: true,
           result: {
             items: normalizeProducts(mockResponse.itemSummaries ?? []),
-            total: 0,
+            total: 5,
             page: 1,
             limit: 20,
             hasMore: false,
-            query: "",
+            query: mockSearchFilters.query,
           },
         }),
       delayMs,

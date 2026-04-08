@@ -10,15 +10,10 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import type { SearchResult, ProductCondition, ApiErrorCode } from "@/types";
 import { useMockApi } from "@/context/mock-api-context";
-
-export interface SearchFilters {
-  minPrice?: number;
-  maxPrice?: number;
-  condition?: ProductCondition | "ALL";
-}
+import { buildSearchQueryParams } from "@/lib/search/searchParams";
+import type { ApiErrorCode, SearchFilters, SearchResult } from "@/types";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface UseSearchState {
   query: string;
@@ -40,6 +35,13 @@ export interface UseSearchActions {
 const DEBOUNCE_MS = 400;
 const DEFAULT_LIMIT = 20;
 
+function mapNetworkError(): { code: ApiErrorCode; message: string } {
+  return {
+    code: "INTERNAL_ERROR",
+    message: "Network error. Please try again.",
+  };
+}
+
 export function useSearch(): UseSearchState & UseSearchActions {
   const [query, setQueryRaw] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -55,6 +57,11 @@ export function useSearch(): UseSearchState & UseSearchActions {
 
   // Debounce query
   useEffect(() => {
+    if (!query.trim()) {
+      setDebouncedQuery("");
+      return;
+    }
+
     const timer = setTimeout(() => setDebouncedQuery(query), DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [query]);
@@ -67,6 +74,8 @@ export function useSearch(): UseSearchState & UseSearchActions {
   // Fetch when debouncedQuery, filters, or page changes
   useEffect(() => {
     if (!debouncedQuery.trim()) {
+      abortRef.current?.abort();
+      setIsLoading(false);
       setResult(null);
       setError(null);
       return;
@@ -76,17 +85,12 @@ export function useSearch(): UseSearchState & UseSearchActions {
     abortRef.current?.abort();
     abortRef.current = new AbortController();
 
-    const params = new URLSearchParams({
+    const params = buildSearchQueryParams({
       q: debouncedQuery,
-      page: String(page),
-      limit: String(DEFAULT_LIMIT),
+      page,
+      limit: DEFAULT_LIMIT,
+      ...filters,
     });
-    if (filters.minPrice !== undefined)
-      params.set("minPrice", String(filters.minPrice));
-    if (filters.maxPrice !== undefined)
-      params.set("maxPrice", String(filters.maxPrice));
-    if (filters.condition && filters.condition !== "ALL")
-      params.set("condition", filters.condition);
 
     setIsLoading(true);
     setError(null);
@@ -107,15 +111,11 @@ export function useSearch(): UseSearchState & UseSearchActions {
       })
       .catch((err) => {
         if (err.name !== "AbortError") {
-          setError({
-            code: "INTERNAL_ERROR",
-            message: "Network error. Please try again.",
-          });
+          setError(mapNetworkError());
         }
       })
       .finally(() => setIsLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, filters, page, retryCount]);
+  }, [debouncedQuery, filters, page, retryCount, isMock]);
 
   const setQuery = useCallback((q: string) => setQueryRaw(q), []);
 

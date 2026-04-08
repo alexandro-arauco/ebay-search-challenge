@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { SearchApiResponse } from "@/types";
 import { validateSearchParams } from "@/specs/searchParams.spec";
 import { searchProducts } from "@/lib/ebay/searchService";
+import { getRawSearchParamInput } from "@/lib/search/searchParams";
 
 export async function GET(
   request: NextRequest,
@@ -18,14 +19,7 @@ export async function GET(
   const { searchParams } = request.nextUrl;
 
   // Validate & normalize params per spec contract
-  const validation = validateSearchParams({
-    q: searchParams.get("q") ?? "",
-    page: searchParams.get("page") ?? undefined,
-    limit: searchParams.get("limit") ?? undefined,
-    minPrice: searchParams.get("minPrice") ?? undefined,
-    maxPrice: searchParams.get("maxPrice") ?? undefined,
-    condition: searchParams.get("condition") ?? undefined,
-  });
+  const validation = validateSearchParams(getRawSearchParamInput(searchParams));
 
   if (!validation.valid) {
     return NextResponse.json(

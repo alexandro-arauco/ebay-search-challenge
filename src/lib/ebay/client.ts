@@ -11,6 +11,7 @@
 
 import type { EbaySearchResponse, SearchParams } from "@/types";
 import { getEbayAccessToken, invalidateToken } from "./auth";
+import { EbayApiError, EbayAuthError } from "./errors";
 
 function getEbayBrowseBaseUrl(environment: string): string {
   return environment === "production"
@@ -91,7 +92,13 @@ export async function searchEbayItems(
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`eBay Browse API error (${response.status}): ${text}`);
+    if (response.status === 401) {
+      throw new EbayAuthError(`eBay auth failed (${response.status}): ${text}`);
+    }
+    throw new EbayApiError(
+      response.status,
+      `eBay Browse API error (${response.status}): ${text}`,
+    );
   }
 
   return response.json() as Promise<EbaySearchResponse>;

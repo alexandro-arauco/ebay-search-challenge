@@ -5,7 +5,12 @@ interface ResultsHeaderProps {
   limit: number;
 }
 
-export function ResultsHeader({ total, query, page, limit }: ResultsHeaderProps) {
+export function ResultsHeader({
+  total,
+  query,
+  page,
+  limit,
+}: ResultsHeaderProps) {
   const from = (page - 1) * limit + 1;
   const to = Math.min(page * limit, total);
 
@@ -15,7 +20,8 @@ export function ResultsHeader({ total, query, page, limit }: ResultsHeaderProps)
         {total.toLocaleString()} results
       </span>
       <span className="text-sm text-ink-300">
-        for <span className="font-medium text-ink-500">&ldquo;{query}&rdquo;</span>
+        for
+        <span className="font-medium text-ink-500"> &ldquo;{query}&rdquo;</span>
       </span>
       {total > limit && (
         <span className="ml-auto text-xs text-ink-300">
