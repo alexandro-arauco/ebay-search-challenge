@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { SearchResult, ProductCondition, ApiErrorCode } from "@/types";
+import { useMockApi } from "@/context/mock-api-context";
 
 export interface SearchFilters {
   minPrice?: number;
@@ -50,6 +51,8 @@ export function useSearch(): UseSearchState & UseSearchActions {
   const [retryCount, setRetryCount] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
+  const { isMock } = useMockApi();
+
   // Debounce query
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), DEBOUNCE_MS);
@@ -73,15 +76,26 @@ export function useSearch(): UseSearchState & UseSearchActions {
     abortRef.current?.abort();
     abortRef.current = new AbortController();
 
-    const params = new URLSearchParams({ q: debouncedQuery, page: String(page), limit: String(DEFAULT_LIMIT) });
-    if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
-    if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
-    if (filters.condition && filters.condition !== "ALL") params.set("condition", filters.condition);
+    const params = new URLSearchParams({
+      q: debouncedQuery,
+      page: String(page),
+      limit: String(DEFAULT_LIMIT),
+    });
+    if (filters.minPrice !== undefined)
+      params.set("minPrice", String(filters.minPrice));
+    if (filters.maxPrice !== undefined)
+      params.set("maxPrice", String(filters.maxPrice));
+    if (filters.condition && filters.condition !== "ALL")
+      params.set("condition", filters.condition);
 
     setIsLoading(true);
     setError(null);
 
-    fetch(`/api/search?${params}`, { signal: abortRef.current.signal })
+    const urlSearch = isMock
+      ? `/api/mock-search?${params}`
+      : `/api/search?${params}`;
+
+    fetch(urlSearch, { signal: abortRef.current.signal })
       .then((res) => res.json())
       .then((json) => {
         if (json.success) {
@@ -93,11 +107,14 @@ export function useSearch(): UseSearchState & UseSearchActions {
       })
       .catch((err) => {
         if (err.name !== "AbortError") {
-          setError({ code: "INTERNAL_ERROR", message: "Network error. Please try again." });
+          setError({
+            code: "INTERNAL_ERROR",
+            message: "Network error. Please try again.",
+          });
         }
       })
       .finally(() => setIsLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery, filters, page, retryCount]);
 
   const setQuery = useCallback((q: string) => setQueryRaw(q), []);
@@ -116,5 +133,17 @@ export function useSearch(): UseSearchState & UseSearchActions {
     setRetryCount(0);
   }, []);
 
-  return { query, filters, result, isLoading, error, page, setQuery, setFilters, setPage, reset, retry };
+  return {
+    query,
+    filters,
+    result,
+    isLoading,
+    error,
+    page,
+    setQuery,
+    setFilters,
+    setPage,
+    reset,
+    retry,
+  };
 }

@@ -96,10 +96,3 @@ export async function searchEbayItems(
 
   return response.json() as Promise<EbaySearchResponse>;
 }
-
-//https://api.ebay.com/buy/browse/v1/item_summary/search
-// ?q=drone&limit=3&category_ids=179697
-// &fieldgroups=EXTENDED,MATCHING_ITEMS&aspect_filter=categoryId:179697,
-// conditionDistributions:{NEW},Connectivity:{App Controller},Camera Integration:{Camera Included},Type:{Ready to Fly Drone}&offset=3
-
-//https://api.ebay.com/buy/browse/v1/item_summary/search?q=drone&limit=3&category_ids=179697&fieldgroups=EXTENDED%2CMATCHING_ITEMS&aspect_filter=conditionDistributions%3A%7BNEW%7D&offset=3

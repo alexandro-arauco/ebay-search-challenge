@@ -9,6 +9,7 @@ const CONDITION_LABELS: Record<string, { label: string; classes: string }> = {
     classes: "bg-emerald-50 text-emerald-700 border-emerald-100",
   },
   USED: { label: "Used", classes: "bg-ink-50 text-ink-500 border-ink-100" },
+  ALL: { label: "All", classes: "bg-ink-50 text-ink-300 border-ink-100" },
 };
 
 interface ProductCardProps {
@@ -17,8 +18,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, index }: ProductCardProps) {
-  const condition =
-    CONDITION_LABELS[product.condition] ?? CONDITION_LABELS.UNSPECIFIED;
+  const condition = CONDITION_LABELS[product.condition];
 
   const formattedPrice =
     product.price.value > 0

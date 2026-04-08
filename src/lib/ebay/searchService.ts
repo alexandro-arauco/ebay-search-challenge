@@ -9,9 +9,10 @@
  * - DIP: depends on abstractions (searchEbayItems, normalizeProducts)
  */
 
-import type { SearchParams, SearchResult, ApiErrorCode } from "@/types";
+import { response as mockResponse } from "@/__mocks__/search/search-response.mock";
 import { searchEbayItems } from "@/lib/ebay/client";
 import { normalizeProducts } from "@/lib/ebay/normalizer";
+import type { ApiErrorCode, SearchParams, SearchResult } from "@/types";
 
 export interface SearchServiceError {
   readonly code: ApiErrorCode;
@@ -26,7 +27,9 @@ export type SearchServiceResult =
  * Executes a product search against eBay Browse API.
  * Returns a normalized SearchResult or a typed error.
  */
-export async function searchProducts(params: SearchParams): Promise<SearchServiceResult> {
+export async function searchProducts(
+  params: SearchParams,
+): Promise<SearchServiceResult> {
   try {
     const raw = await searchEbayItems(params);
     const items = normalizeProducts(raw.itemSummaries ?? []);
@@ -49,10 +52,41 @@ export async function searchProducts(params: SearchParams): Promise<SearchServic
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
 
-    if (message.toLowerCase().includes("auth") || message.toLowerCase().includes("401")) {
-      return { ok: false, error: { code: "EBAY_AUTH_FAILED", message: "eBay authentication failed" } };
+    if (
+      message.toLowerCase().includes("auth") ||
+      message.toLowerCase().includes("401")
+    ) {
+      return {
+        ok: false,
+        error: {
+          code: "EBAY_AUTH_FAILED",
+          message: "eBay authentication failed",
+        },
+      };
     }
 
     return { ok: false, error: { code: "EBAY_API_ERROR", message } };
   }
+}
+
+export async function mockSearchProducts(
+  delayMs: number = 500,
+): Promise<SearchServiceResult> {
+  return new Promise((resolve) => {
+    setTimeout(
+      () =>
+        resolve({
+          ok: true,
+          result: {
+            items: normalizeProducts(mockResponse.itemSummaries ?? []),
+            total: 0,
+            page: 1,
+            limit: 20,
+            hasMore: false,
+            query: "",
+          },
+        }),
+      delayMs,
+    );
+  });
 }
