@@ -1,6 +1,6 @@
 # Searchly — eBay Product Search
 
-A full-stack web app built with **Next.js 14**, **TypeScript**, and **Tailwind CSS** that lets users search eBay listings in real time via the eBay Browse API.
+A full-stack web app built with **Next.js 14**, **TypeScript**, and **Tailwind CSS** that lets users search eBay listings in real time via the eBay Browse API. It includes an optional **mock API** mode so you can develop and demo the UI without calling eBay.
 
 ---
 
@@ -20,12 +20,15 @@ npm install
 cp .env.example .env.local
 ```
 
-Edit `.env.local` and fill in your eBay credentials:
+Edit `.env.local` and fill in your eBay credentials (required only when **Mock Request** is off):
 
 ```env
 EBAY_CLIENT_ID=your_client_id_here
 EBAY_CLIENT_SECRET=your_client_secret_here
 EBAY_ENVIRONMENT=sandbox   # or "production"
+
+# Optional: override OAuth token cache TTL in seconds (default: 7200)
+# EBAY_TOKEN_TTL=7200
 ```
 
 **Getting credentials:**
@@ -59,37 +62,54 @@ npm test -- --coverage
 src/
 ├── app/
 │   ├── api/
-│   │   └── search/route.ts      # GET /api/search — backend endpoint
+│   │   ├── search/route.ts       # GET /api/search — real eBay Browse API
+│   │   └── mock-search/route.ts  # GET /api/mock-search — fixed mock payload
 │   ├── search/
-│   │   ├── page.tsx             # Search page (client component)
-│   │   └── useSearch.ts         # Search state hook with debounce
-│   ├── layout.tsx
+│   │   ├── page.tsx              # Search page (sections + mock toggle)
+│   │   └── useSearch.ts          # Debounced fetch, abort, retry, mock/real URL
+│   ├── layout.tsx                # MockApiProvider wrapper
+│   ├── page.tsx                  # Redirect → /search
 │   └── globals.css
 ├── components/
 │   ├── search/
-│   │   ├── SearchBar.tsx        # Debounced search input
-│   │   ├── FilterBar.tsx        # Condition + price range filters
-│   │   ├── ProductCard.tsx      # Individual listing card
-│   │   ├── ProductGrid.tsx      # Responsive grid layout
-│   │   └── ResultsHeader.tsx    # Result count + pagination info
+│   │   ├── SearchBar.tsx
+│   │   ├── SearchHeaderSection.tsx
+│   │   ├── SearchFiltersSection.tsx   # Mock toggle + FilterBar
+│   │   ├── SearchContentSection.tsx   # Results / loading / errors
+│   │   ├── FilterBar.tsx
+│   │   ├── ProductCard.tsx       # Uses formatPrice for display
+│   │   ├── ProductGrid.tsx
+│   │   └── ResultsHeader.tsx
 │   └── ui/
-│       ├── Skeleton.tsx         # Loading skeleton grid
-│       ├── Pagination.tsx       # Page navigation
-│       └── States.tsx           # Empty / Error / Idle states
+│       ├── Skeleton.tsx
+│       ├── Pagination.tsx
+│       └── States.tsx            # Idle / empty / error (per-code copy + retry)
+├── context/
+│   └── mock-api-context.tsx      # isMock + toggle for mock vs real API
 ├── lib/
 │   ├── cache/
-│   │   └── tokenCache.ts        # In-memory OAuth token cache
+│   │   └── tokenCache.ts
+│   ├── format/
+│   │   └── price.ts              # Intl currency formatting + “Price unavailable”
+│   ├── search/
+│   │   └── searchParams.ts       # buildSearchQueryParams, raw param helpers
 │   └── ebay/
-│       ├── auth.ts              # OAuth 2.0 Client Credentials flow
-│       ├── client.ts            # eBay Browse API HTTP client
-│       ├── normalizer.ts        # Raw eBay → domain Product transform
-│       └── searchService.ts     # Orchestration layer
+│       ├── auth.ts
+│       ├── client.ts
+│       ├── errors.ts             # EbayAuthError, EbayApiError
+│       ├── normalizer.ts
+│       └── searchService.ts      # searchProducts, mockSearchProducts
 ├── specs/
-│   └── searchParams.spec.ts     # Validation contract (SDD)
+│   └── searchParams.spec.ts      # Validation contract (SDD)
 ├── types/
-│   └── index.ts                 # All domain types & API contracts
+│   └── index.ts
+├── __mocks__/search/
+│   ├── search-filters.mock.ts
+│   └── search-response.mock.ts
 └── __tests__/
     ├── validateSearchParams.test.ts
+    ├── searchQueryParams.test.ts
+    ├── formatPrice.test.ts
     ├── normalizer.test.ts
     └── tokenCache.test.ts
 ```
@@ -114,12 +134,12 @@ All domain types and API contracts are defined in `src/types/index.ts` _before_ 
 **Security**
 
 - eBay credentials (`EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`) live **only** in `process.env` (server-side).
-- The frontend only ever calls `/api/search` — it never sees credentials or raw eBay responses.
+- The frontend only ever calls `/api/search` or `/api/mock-search` — it never sees credentials or raw eBay responses.
 - `.env` is gitignored; `.env.example` has placeholder values only.
 
 ### OAuth Token Caching
 
-The token cache (`src/lib/cache/tokenCache.ts`) is an in-memory singleton with a 60-second safety buffer before expiry. On each request:
+The token cache (`src/lib/cache/tokenCache.ts`) is an in-memory singleton with a safety buffer before expiry. On each request:
 
 1. Check cache → return token if valid
 2. If expired or missing → fetch new token from eBay
@@ -128,7 +148,11 @@ The token cache (`src/lib/cache/tokenCache.ts`) is an in-memory singleton with a
 
 In production this would be replaced with Redis (see tradeoffs below).
 
-### API Flow
+### Mock API mode
+
+When **Mock Request** is ON (toolbar toggle), the client calls `GET /api/mock-search`, which returns a fixed normalized result from `mockSearchProducts()` in `searchService.ts` (simulated delay, no OAuth). Turning mock ON also seeds filters from `search-filters.mock.ts` so the UI matches the mock payload. Use this for UI work, screenshots, or when sandbox data is thin.
+
+### API Flow (real search)
 
 ```
 Browser → GET /api/search?q=laptop&page=1
@@ -144,14 +168,16 @@ Browser → GET /api/search?q=laptop&page=1
 
 ## Features
 
-- **Search** with 400ms debounce (avoids unnecessary API calls)
+- **Search** with 400ms debounce and **request cancellation** when the query or page changes mid-flight
+- **Mock vs live API** toggle for development without eBay calls
 - **Filters**: condition (New / Used) and price range
 - **Pagination** with windowed page numbers
-- **Loading states**: skeleton grid while fetching, overlay on page changes
-- **Error states**: typed errors with user-friendly messages per error code
+- **Loading states**: skeleton grid while fetching
+- **Error states**: per-error-code titles and descriptions in `States.tsx`, plus **Try again** (retry bumps internal retry state to refetch)
+- **Price display**: `formatPrice` with `Intl.NumberFormat` and a fallback when value is missing or invalid
 - **Empty state**: clear feedback when no results match
-- **Responsive**: 2→3→4→5 column grid across breakpoints
-- **Accessible**: semantic HTML, `aria-label`, `aria-current`, keyboard nav
+- **Responsive**: multi-column product grid across breakpoints
+- **Accessible**: semantic HTML, `aria-label`, `aria-current`, keyboard-friendly controls where applicable
 
 ---
 
@@ -164,6 +190,9 @@ The current cache uses a module-level variable which works fine for a single Nex
 
 **Client-side search state vs URL state**
 Search state (query, page, filters) lives in React state rather than URL search params. This means users can't share search URLs or use the browser back button to return to results. With more time, I'd sync state to URL params with `useSearchParams` + `useRouter` from Next.js App Router.
+
+**Mock mode is not query-aware**
+The mock endpoint returns a fixed payload; URL query parameters are ignored for the dataset. That's intentional for predictable demos but not for testing filter combinations against varied data.
 
 **No result caching**
 Individual search results aren't cached beyond Next.js's 60s fetch cache. A production app would use Redis or a CDN layer to cache popular queries, reducing eBay API usage and latency.
@@ -205,11 +234,11 @@ Node version: 18+
 
 ## Scoring Rubric Coverage
 
-| Area                      | Implementation                                                                          |
-| ------------------------- | --------------------------------------------------------------------------------------- |
-| **API Integration (30)**  | OAuth 2.0 Client Credentials, token cache, Browse API search, 401 retry, error handling |
-| **Backend Design (25)**   | Credentials server-only, clean abstraction layers, normalized response, typed errors    |
-| **Frontend Quality (20)** | Loading/empty/error states, responsive grid, condition + price filters, pagination      |
-| **Code Quality (15)**     | SOLID principles, SDD contracts, SRP modules, no dead code, full TypeScript             |
-| **Documentation (10)**    | README with setup, architecture, tradeoffs, `.env.example`                              |
-| **Bonus**                 | Search debounce ✓ · Filters ✓ · Unit tests ✓ · Pagination ✓                             |
+| Area                      | Implementation                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------- |
+| **API Integration (30)**  | OAuth 2.0 Client Credentials, token cache, Browse API search, 401 retry, error handling             |
+| **Backend Design (25)**   | Credentials server-only, clean abstraction layers, normalized response, typed errors              |
+| **Frontend Quality (20)** | Loading/empty/error states, responsive grid, condition + price filters, pagination, mock + retry UI |
+| **Code Quality (15)**     | SOLID principles, SDD contracts, SRP modules, no dead code, full TypeScript                       |
+| **Documentation (10)**    | README with setup, architecture, tradeoffs, `.env.example`                                      |
+| **Bonus**                 | Search debounce ✓ · Filters ✓ · Unit tests ✓ · Pagination ✓ · Mock API ✓ · Retry ✓                |
